@@ -223,26 +223,40 @@ function fireSyllableBeats(prompt, onBeat) {
 }
 
 function speakPrompt(prompt, onBeat) {
-  // 1. Try audio file
+  let fired = false;
+  const guard = (fn) => () => { if (fired) return; fired = true; fn(); };
+
   const audio = new Audio(`audio/${slugify(prompt.text)}.mp3`);
-  let usedAudio = false;
 
-  audio.addEventListener('canplaythrough', () => {
-    if (usedAudio) return;
-    usedAudio = true;
-    audio.play().catch(() => tts(prompt, onBeat));
+  audio.addEventListener('canplaythrough', guard(() => {
+    audio.play().catch(() => {});
     fireSyllableBeats(prompt, onBeat);
-  }, { once: true });
+    ttsVoiceOnly(prompt);
+  }), { once: true });
 
-  audio.addEventListener('error', () => {
-    if (!usedAudio) tts(prompt, onBeat);
-  }, { once: true });
+  audio.addEventListener('error', guard(() => {
+    tts(prompt, onBeat);
+  }), { once: true });
 
-  // Timeout fallback
-  setTimeout(() => { if (!usedAudio) { usedAudio = true; tts(prompt, onBeat); } }, 450);
+  setTimeout(guard(() => {
+    tts(prompt, onBeat);
+  }), 450);
 }
 
-function tts(prompt, onBeat) {
+function ttsVoiceOnly(prompt) {
+  // Used when a real audio file is playing — no beat callbacks needed
+  if (!speechOK) return;
+  window.speechSynthesis.cancel();
+  const utt   = new SpeechSynthesisUtterance(prompt.text);
+  utt.lang    = 'it-IT';
+  utt.rate    = 0.52 + prompt.tempo * 0.5;
+  utt.pitch   = 0.85 + prompt.tension * 0.2;
+  utt.volume  = 0;   // silent — audio file is playing
+  if (italianVoice) utt.voice = italianVoice;
+  window.speechSynthesis.speak(utt);
+}
+
+
   fireSyllableBeats(prompt, onBeat);
   if (!speechOK) return;
   window.speechSynthesis.cancel();
@@ -412,7 +426,7 @@ new p5(function(p) {
           this.acc.add(p5.Vector.sub(inner, this.pos).mult(0.07));
           if (this.emitTimer >= this.emitDelay + this.localCompFrames) {
             this.emitPhase = 'free'; this.emitTimer = 0;
-            const spd = p.random(0.6,1.5) * this.emitWeight;
+            const spd = p.random(1.8, 4.2) * this.emitWeight;
             this.emitVel = p5.Vector.fromAngle(this.tendrilAngle).mult(spd);
             const nf = p.floor(p.random(2,5));
             for (let f = 0; f < nf; f++) {
@@ -427,7 +441,7 @@ new p5(function(p) {
         }
       } else if (this.emitPhase === 'free') {
         this.emitTimer++;
-        this.emitVel.mult(0.92);
+        this.emitVel.mult(0.97);
         const cf = Math.pow(p.map(this.emitTimer,0,60,0,1), 2);
         this.emitVel.add(p5.Vector.fromAngle(this.tendrilAngle + p.HALF_PI)
                           .mult(this.tendrilCurve * cf * 0.12));
@@ -439,7 +453,7 @@ new p5(function(p) {
         }
         this.flutter = this.flutter.filter(f => f.life > 0);
 
-        this.emitAlpha -= p.map(this.tendrilPosition, 0, 1, 0.015, 0.033);
+        this.emitAlpha -= p.map(this.tendrilPosition, 0, 1, 0.006, 0.014);
         if (this.emitAlpha <= 0) {
           this.pos = p.createVector(CX + p.cos(this.angle)*this.myR, CY + p.sin(this.angle)*this.myR);
           this.vel = p.createVector(0,0);
