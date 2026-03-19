@@ -43,48 +43,12 @@
       z-index: 10; transition: background 0.5s;
     }
 
-    #start-overlay {
-      position: fixed; inset: 0; background: #000;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      z-index: 100; cursor: pointer;
-      transition: opacity 1.2s ease;
-    }
-    #start-overlay.hidden { opacity: 0; pointer-events: none; }
 
-    #start-title {
-      font-family: 'Cinzel', serif; font-weight: 300;
-      font-size: clamp(2rem, 5vw, 4rem);
-      letter-spacing: 0.4em; color: rgba(255,255,255,0.85);
-      text-transform: uppercase; margin-bottom: 3rem;
-    }
 
-    #start-hint {
-      font-family: 'IM Fell DW Pica', serif; font-style: italic;
-      font-size: clamp(0.9rem, 1.5vw, 1.1rem);
-      letter-spacing: 0.12em; color: rgba(160,200,255,0.5);
-    }
-
-    #start-pulse {
-      width: 80px; height: 80px; border-radius: 50%;
-      border: 1px solid rgba(160,200,255,0.25);
-      margin-bottom: 2.5rem;
-      animation: startPulse 2.5s ease-in-out infinite;
-    }
-
-    @keyframes startPulse {
-      0%, 100% { transform: scale(1); opacity: 0.3; }
-      50%       { transform: scale(1.15); opacity: 0.7; }
-    }
   </style>
 </head>
 <body>
 
-<div id="start-overlay">
-  <div id="start-title">CORPO</div>
-  <div id="start-pulse"></div>
-  <div id="start-hint">tocca per iniziare</div>
-</div>
 
 <div id="canvas-container"></div>
 <div id="subtitle"><div id="subtitle-text"></div></div>
@@ -381,9 +345,7 @@ function runNextPrompt() {
 // ═══════════════════════════════════════════════════════
 // START
 // ═══════════════════════════════════════════════════════
-document.getElementById('start-overlay').addEventListener('click', function() {
-  this.classList.add('hidden');
-  setTimeout(() => this.style.display = 'none', 1400);
+window.addEventListener('load', function() {
   initVoices();
   sequence = buildSequence(); seqIndex = 0;
   window.installationState.running = true;
