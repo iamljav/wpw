@@ -358,8 +358,8 @@ new p5(function(p) {
           this.acc.add(p5.Vector.sub(inner, this.pos).mult(0.07));
           if (this.emitTimer >= this.emitDelay + this.localCompFrames) {
             this.emitPhase = 'free'; this.emitTimer = 0;
-            // Speed: noticeably faster than original but won't fly off screen
-            const spd = p.random(1.0, 2.2) * this.emitWeight;
+            // Speed: reaches well outward from the ring
+            const spd = p.random(1.6, 3.2) * this.emitWeight;
             this.emitVel = p5.Vector.fromAngle(this.tendrilAngle).mult(spd);
             const nf = p.floor(p.random(2,5));
             for (let f = 0; f < nf; f++) {
@@ -374,8 +374,8 @@ new p5(function(p) {
         }
       } else if (this.emitPhase === 'free') {
         this.emitTimer++;
-        // Gentle deceleration — travels further than original
-        this.emitVel.mult(0.95);
+        // Deceleration: strong enough to stop well within canvas
+        this.emitVel.mult(0.93);
         const cf = Math.pow(p.map(this.emitTimer,0,60,0,1), 2);
         this.emitVel.add(p5.Vector.fromAngle(this.tendrilAngle + p.HALF_PI)
                           .mult(this.tendrilCurve * cf * 0.12));
@@ -388,7 +388,7 @@ new p5(function(p) {
         this.flutter = this.flutter.filter(f => f.life > 0);
 
         // Slower fade — stays visible through full extension
-        this.emitAlpha -= p.map(this.tendrilPosition, 0, 1, 0.011, 0.024);
+        this.emitAlpha -= p.map(this.tendrilPosition, 0, 1, 0.008, 0.018);
         if (this.emitAlpha <= 0) {
           this.pos = p.createVector(CX + p.cos(this.angle)*this.myR, CY + p.sin(this.angle)*this.myR);
           this.vel = p.createVector(0,0);
