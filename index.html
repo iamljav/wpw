@@ -399,7 +399,7 @@ new p5(function(p) {
   const BASE_R   = 0.18;
   const THICK_R  = 0.038;
   const WEB_R    = 0.032;
-  const EMIT_ARC = 0.5;
+  const EMIT_ARC = 0.75;
 
   let CX, CY, R, THICK, REACH;
   let breathPhase = 0, breathRate = 0.007;
@@ -537,15 +537,15 @@ new p5(function(p) {
     }
     if (!zone.length) return;
 
-    const tendrilCount = p.floor(p.map(weight, 0.25, 1.0, 2, 6));
+    const tendrilCount = p.floor(p.map(weight, 0.25, 1.0, 5, 14));
     const compFrames   = p.floor(p.map(tension, 0.1, 0.9, 28, 7));
-    const sharedCurve  = p.random(-0.22, 0.22);
-    const coneHalf     = p.map(tension, 0.1, 0.9, 0.18, 0.42);
+    const sharedCurve  = p.random(-0.28, 0.28);
+    const coneHalf     = p.map(tension, 0.1, 0.9, 0.22, 0.55);
 
     for (let t = 0; t < tendrilCount; t++) {
       const tAng      = angle + p.random(-coneHalf, coneHalf);
-      const delay     = t * p.floor(p.random(2,6));
-      const clSize    = p.floor(p.random(3,6));
+      const delay     = t * p.floor(p.random(1,5));
+      const clSize    = p.floor(p.random(4,9));
       const startIdx  = p.floor(p.random(0, p.max(1, zone.length - clSize)));
       for (let c = 0; c < clSize; c++) {
         const pt = zone[(startIdx+c) % zone.length];
