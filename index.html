@@ -42,13 +42,9 @@
       background: rgba(100,160,255,0.3);
       z-index: 10; transition: background 0.5s;
     }
-
-
-
   </style>
 </head>
 <body>
-
 
 <div id="canvas-container"></div>
 <div id="subtitle"><div id="subtitle-text"></div></div>
@@ -62,36 +58,20 @@ function syllabifyItalian(word) {
   const VOWELS = 'aeiouàèéìíîòóùú';
   const isV = c => c && VOWELS.includes(c.toLowerCase());
   const isC = c => c && !isV(c) && c !== ' ';
-
   word = word.toLowerCase().trim();
   let syllables = [], cur = '', i = 0;
-
   while (i < word.length) {
     const c = word[i], c1 = word[i+1], c2 = word[i+2];
-    if (c === ' ') {
-      if (cur) { syllables.push(cur); cur = ''; }
-      i++; continue;
-    }
+    if (c === ' ') { if (cur) { syllables.push(cur); cur = ''; } i++; continue; }
     cur += c;
     if (isV(c)) {
-      // keep glide+vowel diphthongs together (ia, ie, io, ua, ue, uo…)
-      if (c1 && isV(c1) && 'iuìù'.includes(c) && !'iuìù'.includes(c1)) {
-        cur += c1; i++;
-      }
+      if (c1 && isV(c1) && 'iuìù'.includes(c) && !'iuìù'.includes(c1)) { cur += c1; i++; }
       const nc1 = word[i+1], nc2 = word[i+2];
       if (nc1 && isC(nc1)) {
-        if (nc2 && isC(nc2)) {
-          // CCV cluster — attach first C to this syllable
-          cur += nc1; i++;
-          syllables.push(cur); cur = '';
-        } else if (nc2 && isV(nc2)) {
-          syllables.push(cur); cur = '';
-        } else {
-          cur += nc1; i++;
-        }
-      } else if (!nc1 || nc1 === ' ') {
-        syllables.push(cur); cur = '';
-      }
+        if (nc2 && isC(nc2)) { cur += nc1; i++; syllables.push(cur); cur = ''; }
+        else if (nc2 && isV(nc2)) { syllables.push(cur); cur = ''; }
+        else { cur += nc1; i++; }
+      } else if (!nc1 || nc1 === ' ') { syllables.push(cur); cur = ''; }
     }
     i++;
   }
@@ -99,20 +79,15 @@ function syllabifyItalian(word) {
   return syllables.filter(s => s.length > 0);
 }
 
-// Returns [{syllable, time}] in ms, plus totalDuration
 function getSyllableBeatmap(text, tempo) {
   const words = text.split(' ');
-  const GAP   = 90 + (1 - tempo) * 320;   // 90ms (fast) — 410ms (slow)
-  const WORD_PAUSE = GAP * 0.55;
-
+  const GAP   = 90 + (1 - tempo) * 320;
+  const WPAUSE = GAP * 0.55;
   let beats = [], t = 0;
   for (let w = 0; w < words.length; w++) {
     const syls = syllabifyItalian(words[w]);
-    for (let s = 0; s < syls.length; s++) {
-      beats.push({ syllable: syls[s], time: t });
-      t += GAP;
-    }
-    if (w < words.length - 1) t += WORD_PAUSE;
+    for (let s = 0; s < syls.length; s++) { beats.push({ syllable: syls[s], time: t }); t += GAP; }
+    if (w < words.length - 1) t += WPAUSE;
   }
   return { beats, totalDuration: t };
 }
@@ -152,21 +127,21 @@ const CLUSTERS = [
     { text: 'Tocca il pavimento',     tempo: 0.30, weight: 0.55, tension: 0.35 },
   ]},
   { name: 'spazio', prompts: [
-    { text: 'Avvicinati',                      tempo: 0.50, weight: 0.65, tension: 0.40 },
-    { text: 'Allontanati',                     tempo: 0.40, weight: 0.60, tension: 0.35 },
-    { text: 'Fai un passo avanti',             tempo: 0.50, weight: 0.70, tension: 0.45 },
-    { text: 'Fai un passo indietro',           tempo: 0.45, weight: 0.65, tension: 0.40 },
-    { text: 'Sfiora il tuo vicino',            tempo: 0.20, weight: 0.55, tension: 0.60 },
-    { text: 'Siediti vicino a qualcuno',       tempo: 0.20, weight: 0.50, tension: 0.40 },
-    { text: 'Girati verso qualcuno',           tempo: 0.40, weight: 0.60, tension: 0.50 },
-    { text: 'Non guardare chi ti sta vicino',  tempo: 0.10, weight: 0.50, tension: 0.65 },
+    { text: 'Avvicinati',                     tempo: 0.50, weight: 0.65, tension: 0.40 },
+    { text: 'Allontanati',                    tempo: 0.40, weight: 0.60, tension: 0.35 },
+    { text: 'Fai un passo avanti',            tempo: 0.50, weight: 0.70, tension: 0.45 },
+    { text: 'Fai un passo indietro',          tempo: 0.45, weight: 0.65, tension: 0.40 },
+    { text: 'Sfiora il tuo vicino',           tempo: 0.20, weight: 0.55, tension: 0.60 },
+    { text: 'Siediti vicino a qualcuno',      tempo: 0.20, weight: 0.50, tension: 0.40 },
+    { text: 'Girati verso qualcuno',          tempo: 0.40, weight: 0.60, tension: 0.50 },
+    { text: 'Non guardare chi ti sta vicino', tempo: 0.10, weight: 0.50, tension: 0.65 },
   ]},
   { name: 'ambiguo', prompts: [
-    { text: 'Aspetta',             tempo: 0.05, weight: 0.30, tension: 0.15 },
-    { text: 'Ascolta',             tempo: 0.05, weight: 0.35, tension: 0.10 },
-    { text: 'Non guardare',        tempo: 0.10, weight: 0.45, tension: 0.50 },
-    { text: 'Ricorda qualcosa',    tempo: 0.08, weight: 0.30, tension: 0.20 },
-    { text: 'Dimentica dove sei',  tempo: 0.05, weight: 0.25, tension: 0.10 },
+    { text: 'Aspetta',            tempo: 0.05, weight: 0.30, tension: 0.15 },
+    { text: 'Ascolta',            tempo: 0.05, weight: 0.35, tension: 0.10 },
+    { text: 'Non guardare',       tempo: 0.10, weight: 0.45, tension: 0.50 },
+    { text: 'Ricorda qualcosa',   tempo: 0.08, weight: 0.30, tension: 0.20 },
+    { text: 'Dimentica dove sei', tempo: 0.05, weight: 0.25, tension: 0.10 },
   ]},
 ];
 
@@ -174,14 +149,13 @@ function buildSequence() {
   let seq = [];
   const shuffled = [...CLUSTERS].sort(() => Math.random() - 0.5);
   for (const cluster of shuffled) {
-    const s = [...cluster.prompts].sort(() => Math.random() - 0.5);
-    seq.push(...s);
+    seq.push(...[...cluster.prompts].sort(() => Math.random() - 0.5));
   }
   return seq;
 }
 
 // ═══════════════════════════════════════════════════════
-// TIMING (ms)
+// TIMING
 // ═══════════════════════════════════════════════════════
 const PHASE_STIR    = 2400;
 const PHASE_RESPOND = 10000;
@@ -189,13 +163,10 @@ const PHASE_REST    = 3500;
 
 // ═══════════════════════════════════════════════════════
 // AUDIO / SPEECH
-// When you add recorded audio: place files in /audio/
-// named by slugified text, e.g. /audio/siediti.mp3
-// The system tries the file first, falls back to TTS.
 // ═══════════════════════════════════════════════════════
 function slugify(text) {
   return text.toLowerCase()
-    .replace(/\s+/g, '-')
+    .replace(/\s+/g,'-')
     .replace(/[àá]/g,'a').replace(/[èé]/g,'e')
     .replace(/[ìí]/g,'i').replace(/[òó]/g,'o').replace(/[ùú]/g,'u')
     .replace(/[^a-z0-9-]/g,'');
@@ -206,65 +177,37 @@ let italianVoice = null;
 
 function initVoices() {
   if (!speechOK) return;
-  const load = () => {
-    const voices = window.speechSynthesis.getVoices();
-    italianVoice = voices.find(v => v.lang && v.lang.startsWith('it')) || null;
-  };
+  const load = () => { italianVoice = window.speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('it')) || null; };
   load();
   window.speechSynthesis.onvoiceschanged = load;
 }
 
-// Fires beat callbacks timed to syllable rhythm (independent of actual audio)
 function fireSyllableBeats(prompt, onBeat) {
   const { beats } = getSyllableBeatmap(prompt.text, prompt.tempo);
-  for (const b of beats) {
-    setTimeout(() => onBeat(b.syllable), b.time);
-  }
+  for (const b of beats) setTimeout(() => onBeat(b.syllable), b.time);
 }
 
 function speakPrompt(prompt, onBeat) {
   let fired = false;
-  const guard = (fn) => () => { if (fired) return; fired = true; fn(); };
-
+  const guard = fn => () => { if (fired) return; fired = true; fn(); };
   const audio = new Audio(`audio/${slugify(prompt.text)}.mp3`);
-
   audio.addEventListener('canplaythrough', guard(() => {
     audio.play().catch(() => {});
     fireSyllableBeats(prompt, onBeat);
-    ttsVoiceOnly(prompt);
   }), { once: true });
-
-  audio.addEventListener('error', guard(() => {
-    tts(prompt, onBeat);
-  }), { once: true });
-
-  setTimeout(guard(() => {
-    tts(prompt, onBeat);
-  }), 450);
+  audio.addEventListener('error', guard(() => tts(prompt, onBeat)), { once: true });
+  setTimeout(guard(() => tts(prompt, onBeat)), 450);
 }
 
-function ttsVoiceOnly(prompt) {
-  // Used when a real audio file is playing — no beat callbacks needed
-  if (!speechOK) return;
-  window.speechSynthesis.cancel();
-  const utt   = new SpeechSynthesisUtterance(prompt.text);
-  utt.lang    = 'it-IT';
-  utt.rate    = 0.52 + prompt.tempo * 0.5;
-  utt.pitch   = 0.85 + prompt.tension * 0.2;
-  utt.volume  = 0;   // silent — audio file is playing
-  if (italianVoice) utt.voice = italianVoice;
-  window.speechSynthesis.speak(utt);
-}
-
-
+function tts(prompt, onBeat) {
   fireSyllableBeats(prompt, onBeat);
   if (!speechOK) return;
   window.speechSynthesis.cancel();
-  const utt   = new SpeechSynthesisUtterance(prompt.text);
-  utt.lang    = 'it-IT';
-  utt.rate    = 0.52 + prompt.tempo * 0.5;
-  utt.pitch   = 0.85 + prompt.tension * 0.2;
-  utt.volume  = 0.9;
+  const utt = new SpeechSynthesisUtterance(prompt.text);
+  utt.lang   = 'it-IT';
+  utt.rate   = 0.52 + prompt.tempo * 0.5;
+  utt.pitch  = 0.85 + prompt.tension * 0.2;
+  utt.volume = 0.9;
   if (italianVoice) utt.voice = italianVoice;
   window.speechSynthesis.speak(utt);
 }
@@ -285,17 +228,16 @@ function hideSubtitle() {
   subtitleEl.style.opacity = '0';
 }
 function setPhaseDot(phase) {
-  const c = { stir:'rgba(100,160,255,0.5)', show:'rgba(200,230,255,0.9)',
-               respond:'rgba(100,160,255,0.3)', rest:'rgba(100,160,255,0.1)' };
+  const c = { stir:'rgba(100,160,255,0.5)', show:'rgba(200,230,255,0.9)', respond:'rgba(100,160,255,0.3)', rest:'rgba(100,160,255,0.1)' };
   phaseDot.style.background = c[phase] || c.rest;
 }
 
 // ═══════════════════════════════════════════════════════
-// SHARED STATE  (read by p5 every frame)
+// SHARED STATE
 // ═══════════════════════════════════════════════════════
 window.installationState = {
   phase: 'rest', prompt: null, running: false,
-  pendingBeats: [],   // [{angle, weight, tension, tempo}]
+  pendingBeats: [],
 };
 
 function promptToAngle(prompt) {
@@ -317,38 +259,30 @@ function runNextPrompt() {
   window.installationState.prompt = prompt;
 
   const { totalDuration } = getSyllableBeatmap(prompt.text, prompt.tempo);
-  const stirDur  = PHASE_STIR   + (Math.random()*500 - 250);
-  const showDur  = Math.max(totalDuration + 1400, 3200) + (Math.random()*600 - 300);
-  const respDur  = PHASE_RESPOND + prompt.tension * 3000 + (Math.random()*800 - 400);
-  const restDur  = PHASE_REST   + (Math.random()*600 - 300);
+  const stirDur = PHASE_STIR   + (Math.random()*500 - 250);
+  const showDur = Math.max(totalDuration + 1400, 3200) + (Math.random()*600 - 300);
+  const respDur = PHASE_RESPOND + prompt.tension * 3000 + (Math.random()*800 - 400);
+  const restDur = PHASE_REST   + (Math.random()*600 - 300);
 
-  window.installationState.phase = 'stir';
-  setPhaseDot('stir');
+  window.installationState.phase = 'stir'; setPhaseDot('stir');
 
   setTimeout(() => {
-    window.installationState.phase = 'show';
-    setPhaseDot('show');
+    window.installationState.phase = 'show'; setPhaseDot('show');
     showSubtitle(prompt.text);
-
     speakPrompt(prompt, (syllable) => {
       window.installationState.pendingBeats.push({
-        syllable,
-        angle:   promptToAngle(prompt),
-        weight:  prompt.weight,
-        tension: prompt.tension,
-        tempo:   prompt.tempo,
+        syllable, angle: promptToAngle(prompt),
+        weight: prompt.weight, tension: prompt.tension, tempo: prompt.tempo,
       });
     });
 
     setTimeout(() => {
-      window.installationState.phase = 'respond';
-      setPhaseDot('respond');
+      window.installationState.phase = 'respond'; setPhaseDot('respond');
       hideSubtitle();
       if (speechOK) window.speechSynthesis.cancel();
 
       setTimeout(() => {
-        window.installationState.phase = 'rest';
-        setPhaseDot('rest');
+        window.installationState.phase = 'rest'; setPhaseDot('rest');
         window.installationState.prompt = null;
         setTimeout(runNextPrompt, restDur);
       }, respDur);
@@ -357,7 +291,7 @@ function runNextPrompt() {
 }
 
 // ═══════════════════════════════════════════════════════
-// START
+// AUTOSTART
 // ═══════════════════════════════════════════════════════
 window.addEventListener('load', function() {
   initVoices();
@@ -382,14 +316,12 @@ new p5(function(p) {
   let particles   = [];
   let stirTimer   = 0;
 
-  // ── COLOUR ──
   function pCol(dMult, isFree, alpha) {
-    if (isFree) return p.color(200, 220, 255, alpha*255);
+    if (isFree) return p.color(200, 220, 255, alpha * 255);
     const t = p.constrain(dMult - 1, 0, 1);
     return p.color(p.lerp(75,200,t), p.lerp(105,220,t), p.lerp(175,255,t), alpha*255);
   }
 
-  // ── PARTICLE CLASS ──
   function Particle(angle) {
     this.angle = angle;
     this.myR   = p.random(R - THICK/2, R + THICK/2);
@@ -426,7 +358,8 @@ new p5(function(p) {
           this.acc.add(p5.Vector.sub(inner, this.pos).mult(0.07));
           if (this.emitTimer >= this.emitDelay + this.localCompFrames) {
             this.emitPhase = 'free'; this.emitTimer = 0;
-            const spd = p.random(1.2, 2.5) * this.emitWeight;
+            // Speed: noticeably faster than original but won't fly off screen
+            const spd = p.random(1.0, 2.2) * this.emitWeight;
             this.emitVel = p5.Vector.fromAngle(this.tendrilAngle).mult(spd);
             const nf = p.floor(p.random(2,5));
             for (let f = 0; f < nf; f++) {
@@ -441,7 +374,8 @@ new p5(function(p) {
         }
       } else if (this.emitPhase === 'free') {
         this.emitTimer++;
-        this.emitVel.mult(0.94);
+        // Gentle deceleration — travels further than original
+        this.emitVel.mult(0.95);
         const cf = Math.pow(p.map(this.emitTimer,0,60,0,1), 2);
         this.emitVel.add(p5.Vector.fromAngle(this.tendrilAngle + p.HALF_PI)
                           .mult(this.tendrilCurve * cf * 0.12));
@@ -453,7 +387,8 @@ new p5(function(p) {
         }
         this.flutter = this.flutter.filter(f => f.life > 0);
 
-        this.emitAlpha -= p.map(this.tendrilPosition, 0, 1, 0.010, 0.022);
+        // Slower fade — stays visible through full extension
+        this.emitAlpha -= p.map(this.tendrilPosition, 0, 1, 0.011, 0.024);
         if (this.emitAlpha <= 0) {
           this.pos = p.createVector(CX + p.cos(this.angle)*this.myR, CY + p.sin(this.angle)*this.myR);
           this.vel = p.createVector(0,0);
@@ -462,7 +397,7 @@ new p5(function(p) {
         return 1.0;
       }
 
-      // Breathing — multi-frequency so the ring is never perfectly round
+      // Breathing
       const bSlow = p.sin(breathPhase) * 0.028;
       const bFast = p.sin(breathPhase * 3.7 + this.angle * 0.5) * 0.008;
       const bWarp = p.sin(breathPhase * 0.7 + this.angle * 2.3) * 0.012;
@@ -472,8 +407,8 @@ new p5(function(p) {
       const drift = p5.Vector.fromAngle(n * p.TWO_PI * 2).mult(0.5);
 
       const pulseAmt = speaking ? (1 + p.sin(p.frameCount*0.1) * 0.05 * weight) : 1.0;
-      const curR   = this.myR * breathAmt * pulseAmt;
-      let homePos  = p.createVector(CX + p.cos(this.angle)*curR, CY + p.sin(this.angle)*curR);
+      const curR  = this.myR * breathAmt * pulseAmt;
+      let homePos = p.createVector(CX + p.cos(this.angle)*curR, CY + p.sin(this.angle)*curR);
 
       let ad = p.abs(this.angle - targetAngle);
       if (ad > p.PI) ad = p.TWO_PI - ad;
@@ -519,10 +454,10 @@ new p5(function(p) {
     const coneHalf     = p.map(tension, 0.1, 0.9, 0.22, 0.55);
 
     for (let t = 0; t < tendrilCount; t++) {
-      const tAng      = angle + p.random(-coneHalf, coneHalf);
-      const delay     = t * p.floor(p.random(1,5));
-      const clSize    = p.floor(p.random(4,9));
-      const startIdx  = p.floor(p.random(0, p.max(1, zone.length - clSize)));
+      const tAng     = angle + p.random(-coneHalf, coneHalf);
+      const delay    = t * p.floor(p.random(1,5));
+      const clSize   = p.floor(p.random(4,9));
+      const startIdx = p.floor(p.random(0, p.max(1, zone.length - clSize)));
       for (let c = 0; c < clSize; c++) {
         const pt = zone[(startIdx+c) % zone.length];
         pt.tendrilPosition = c / clSize;
@@ -535,7 +470,6 @@ new p5(function(p) {
     triggerSyllableEmission(angle + p.random(-0.5,0.5), weight*0.4, tension*0.5);
   }
 
-  // ── SETUP ──
   function _resize() {
     CX = p.width/2; CY = p.height/2;
     R     = p.min(p.width,p.height) * BASE_R;
@@ -556,7 +490,6 @@ new p5(function(p) {
     _resize();
   };
 
-  // ── DRAW ──
   p.draw = function() {
     const state   = window.installationState;
     const phase   = state.phase;
@@ -565,10 +498,8 @@ new p5(function(p) {
     const tension = prompt ? prompt.tension : 0.2;
     const tempo   = prompt ? prompt.tempo   : 0.1;
 
-    // Slightly blue-tinted dark background fade
     p.fill(2, 3, 9, 22); p.noStroke(); p.rect(0,0,p.width,p.height);
 
-    // Breath rate
     let targetBR = 0.006 + tempo * 0.01;
     if (phase === 'stir' || phase === 'show') targetBR += tension * 0.006;
     if (phase === 'rest') targetBR = 0.005;
@@ -577,27 +508,22 @@ new p5(function(p) {
 
     const targetAngle = prompt ? promptToAngle(prompt) : 0;
 
-    // ── CONSUME ONE BEAT PER FRAME ──
-    // (staggered so rapid syllables don't all fire at once)
     if (state.pendingBeats.length > 0) {
       const beat = state.pendingBeats.shift();
       triggerSyllableEmission(beat.angle, beat.weight, beat.tension);
     }
 
-    // ── STIR ──
     if (phase === 'stir') {
       stirTimer++;
       const interval = p.floor(p.map(tempo, 0.05, 0.7, 65, 22));
       if (stirTimer % interval === 0) triggerStirEmission(targetAngle, weight, tension);
     } else { stirTimer = 0; }
 
-    // ── PARTICLES ──
     for (let i = 0; i < particles.length; i++) {
       const pt    = particles[i];
       const dMult = pt.update(targetAngle, weight, phase);
       const jX    = p.random(-1.5,1.5), jY = p.random(-1.5,1.5);
 
-      // flutter
       if (pt.emitPhase === 'free') {
         for (const f of pt.flutter) {
           p.stroke(pCol(1, true, f.alpha * pt.emitAlpha));
@@ -606,14 +532,13 @@ new p5(function(p) {
         }
       }
 
-      const alpha = pt.emitPhase === 'free' ? pt.emitAlpha*0.9 : 0.13*dMult;
+      const alpha = pt.emitPhase === 'free' ? pt.emitAlpha * 0.9 : 0.13 * dMult;
       p.stroke(pCol(dMult, pt.emitPhase === 'free', alpha));
       p.strokeWeight(1.6);
       p.point(pt.pos.x+jX, pt.pos.y+jY);
 
       if (pt.emitPhase === 'free') continue;
 
-      // close web
       for (let j = i+1; j < i+12; j++) {
         const nx = j % particles.length;
         if (particles[nx].emitPhase === 'free') continue;
@@ -626,7 +551,6 @@ new p5(function(p) {
         }
       }
 
-      // cross filaments
       for (let k = i+1; k < i+40; k++) {
         const fx = k % particles.length;
         if (particles[fx].emitPhase === 'free') continue;
