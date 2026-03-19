@@ -1,0 +1,671 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CORPO — Installazione</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/p5.js/1.9.0/p5.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@300;400&family=IM+Fell+DW+Pica:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+    html, body { width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; }
+
+    #canvas-container {
+      position: fixed; top: 0; left: 0;
+      width: 100%; height: 100%;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    #subtitle {
+      position: fixed; bottom: 10vh; left: 50%;
+      transform: translateX(-50%);
+      text-align: center; z-index: 10;
+      pointer-events: none; width: 80vw; max-width: 900px;
+    }
+
+    #subtitle-text {
+      font-family: 'Cinzel', serif;
+      font-weight: 300;
+      font-size: clamp(1.8rem, 4vw, 3.2rem);
+      letter-spacing: 0.18em;
+      color: #fff; opacity: 0;
+      text-transform: uppercase;
+      text-shadow: 0 0 40px rgba(160,200,255,0.4), 0 0 80px rgba(100,160,255,0.15);
+      transition: opacity 0.8s ease;
+    }
+
+    #phase-dot {
+      position: fixed; top: 2rem; right: 2rem;
+      width: 6px; height: 6px; border-radius: 50%;
+      background: rgba(100,160,255,0.3);
+      z-index: 10; transition: background 0.5s;
+    }
+
+    #start-overlay {
+      position: fixed; inset: 0; background: #000;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      z-index: 100; cursor: pointer;
+      transition: opacity 1.2s ease;
+    }
+    #start-overlay.hidden { opacity: 0; pointer-events: none; }
+
+    #start-title {
+      font-family: 'Cinzel', serif; font-weight: 300;
+      font-size: clamp(2rem, 5vw, 4rem);
+      letter-spacing: 0.4em; color: rgba(255,255,255,0.85);
+      text-transform: uppercase; margin-bottom: 3rem;
+    }
+
+    #start-hint {
+      font-family: 'IM Fell DW Pica', serif; font-style: italic;
+      font-size: clamp(0.9rem, 1.5vw, 1.1rem);
+      letter-spacing: 0.12em; color: rgba(160,200,255,0.5);
+    }
+
+    #start-pulse {
+      width: 80px; height: 80px; border-radius: 50%;
+      border: 1px solid rgba(160,200,255,0.25);
+      margin-bottom: 2.5rem;
+      animation: startPulse 2.5s ease-in-out infinite;
+    }
+
+    @keyframes startPulse {
+      0%, 100% { transform: scale(1); opacity: 0.3; }
+      50%       { transform: scale(1.15); opacity: 0.7; }
+    }
+  </style>
+</head>
+<body>
+
+<div id="start-overlay">
+  <div id="start-title">CORPO</div>
+  <div id="start-pulse"></div>
+  <div id="start-hint">tocca per iniziare</div>
+</div>
+
+<div id="canvas-container"></div>
+<div id="subtitle"><div id="subtitle-text"></div></div>
+<div id="phase-dot"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════
+// ITALIAN SYLLABIFIER
+// ═══════════════════════════════════════════════════════
+function syllabifyItalian(word) {
+  const VOWELS = 'aeiouàèéìíîòóùú';
+  const isV = c => c && VOWELS.includes(c.toLowerCase());
+  const isC = c => c && !isV(c) && c !== ' ';
+
+  word = word.toLowerCase().trim();
+  let syllables = [], cur = '', i = 0;
+
+  while (i < word.length) {
+    const c = word[i], c1 = word[i+1], c2 = word[i+2];
+    if (c === ' ') {
+      if (cur) { syllables.push(cur); cur = ''; }
+      i++; continue;
+    }
+    cur += c;
+    if (isV(c)) {
+      // keep glide+vowel diphthongs together (ia, ie, io, ua, ue, uo…)
+      if (c1 && isV(c1) && 'iuìù'.includes(c) && !'iuìù'.includes(c1)) {
+        cur += c1; i++;
+      }
+      const nc1 = word[i+1], nc2 = word[i+2];
+      if (nc1 && isC(nc1)) {
+        if (nc2 && isC(nc2)) {
+          // CCV cluster — attach first C to this syllable
+          cur += nc1; i++;
+          syllables.push(cur); cur = '';
+        } else if (nc2 && isV(nc2)) {
+          syllables.push(cur); cur = '';
+        } else {
+          cur += nc1; i++;
+        }
+      } else if (!nc1 || nc1 === ' ') {
+        syllables.push(cur); cur = '';
+      }
+    }
+    i++;
+  }
+  if (cur) syllables.push(cur);
+  return syllables.filter(s => s.length > 0);
+}
+
+// Returns [{syllable, time}] in ms, plus totalDuration
+function getSyllableBeatmap(text, tempo) {
+  const words = text.split(' ');
+  const GAP   = 90 + (1 - tempo) * 320;   // 90ms (fast) — 410ms (slow)
+  const WORD_PAUSE = GAP * 0.55;
+
+  let beats = [], t = 0;
+  for (let w = 0; w < words.length; w++) {
+    const syls = syllabifyItalian(words[w]);
+    for (let s = 0; s < syls.length; s++) {
+      beats.push({ syllable: syls[s], time: t });
+      t += GAP;
+    }
+    if (w < words.length - 1) t += WORD_PAUSE;
+  }
+  return { beats, totalDuration: t };
+}
+
+// ═══════════════════════════════════════════════════════
+// CORPUS
+// ═══════════════════════════════════════════════════════
+const CLUSTERS = [
+  { name: 'postura', prompts: [
+    { text: 'Siediti',               tempo: 0.30, weight: 0.60, tension: 0.30 },
+    { text: 'Alzati',                tempo: 0.50, weight: 0.70, tension: 0.40 },
+    { text: 'Inginocchiati',         tempo: 0.20, weight: 0.80, tension: 0.50 },
+    { text: 'Sdraiati',              tempo: 0.15, weight: 0.50, tension: 0.20 },
+    { text: 'Accovacciati',          tempo: 0.25, weight: 0.60, tension: 0.40 },
+    { text: 'Mettiti in piedi',      tempo: 0.55, weight: 0.75, tension: 0.50 },
+    { text: 'Siediti sul pavimento', tempo: 0.20, weight: 0.50, tension: 0.25 },
+    { text: 'Appoggiati al muro',    tempo: 0.20, weight: 0.45, tension: 0.20 },
+  ]},
+  { name: 'immobilità', prompts: [
+    { text: 'Non muoverti',           tempo: 0.10, weight: 0.90, tension: 0.80 },
+    { text: 'Fermati',                tempo: 0.70, weight: 1.00, tension: 0.90 },
+    { text: 'Resta immobile',         tempo: 0.10, weight: 0.70, tension: 0.60 },
+    { text: 'Trattieni il respiro',   tempo: 0.15, weight: 0.85, tension: 0.90 },
+    { text: 'Chiudi gli occhi',       tempo: 0.20, weight: 0.50, tension: 0.30 },
+    { text: 'Tieni gli occhi chiusi', tempo: 0.10, weight: 0.40, tension: 0.20 },
+    { text: 'Non fare nulla',         tempo: 0.05, weight: 0.30, tension: 0.10 },
+  ]},
+  { name: 'gesto', prompts: [
+    { text: 'Alza le mani',           tempo: 0.60, weight: 0.80, tension: 0.60 },
+    { text: 'Abbassa la testa',       tempo: 0.30, weight: 0.50, tension: 0.30 },
+    { text: 'Girati',                 tempo: 0.65, weight: 0.70, tension: 0.50 },
+    { text: 'Voltati',                tempo: 0.60, weight: 0.65, tension: 0.50 },
+    { text: 'Copriti il viso',        tempo: 0.25, weight: 0.60, tension: 0.55 },
+    { text: 'Apri le braccia',        tempo: 0.40, weight: 0.55, tension: 0.30 },
+    { text: 'Tendi le mani',          tempo: 0.45, weight: 0.60, tension: 0.40 },
+    { text: 'Porta le mani al petto', tempo: 0.20, weight: 0.50, tension: 0.30 },
+    { text: 'Tocca il pavimento',     tempo: 0.30, weight: 0.55, tension: 0.35 },
+  ]},
+  { name: 'spazio', prompts: [
+    { text: 'Avvicinati',                      tempo: 0.50, weight: 0.65, tension: 0.40 },
+    { text: 'Allontanati',                     tempo: 0.40, weight: 0.60, tension: 0.35 },
+    { text: 'Fai un passo avanti',             tempo: 0.50, weight: 0.70, tension: 0.45 },
+    { text: 'Fai un passo indietro',           tempo: 0.45, weight: 0.65, tension: 0.40 },
+    { text: 'Sfiora il tuo vicino',            tempo: 0.20, weight: 0.55, tension: 0.60 },
+    { text: 'Siediti vicino a qualcuno',       tempo: 0.20, weight: 0.50, tension: 0.40 },
+    { text: 'Girati verso qualcuno',           tempo: 0.40, weight: 0.60, tension: 0.50 },
+    { text: 'Non guardare chi ti sta vicino',  tempo: 0.10, weight: 0.50, tension: 0.65 },
+  ]},
+  { name: 'ambiguo', prompts: [
+    { text: 'Aspetta',             tempo: 0.05, weight: 0.30, tension: 0.15 },
+    { text: 'Ascolta',             tempo: 0.05, weight: 0.35, tension: 0.10 },
+    { text: 'Non guardare',        tempo: 0.10, weight: 0.45, tension: 0.50 },
+    { text: 'Ricorda qualcosa',    tempo: 0.08, weight: 0.30, tension: 0.20 },
+    { text: 'Dimentica dove sei',  tempo: 0.05, weight: 0.25, tension: 0.10 },
+  ]},
+];
+
+function buildSequence() {
+  let seq = [];
+  const shuffled = [...CLUSTERS].sort(() => Math.random() - 0.5);
+  for (const cluster of shuffled) {
+    const s = [...cluster.prompts].sort(() => Math.random() - 0.5);
+    seq.push(...s);
+  }
+  return seq;
+}
+
+// ═══════════════════════════════════════════════════════
+// TIMING (ms)
+// ═══════════════════════════════════════════════════════
+const PHASE_STIR    = 2400;
+const PHASE_RESPOND = 10000;
+const PHASE_REST    = 3500;
+
+// ═══════════════════════════════════════════════════════
+// AUDIO / SPEECH
+// When you add recorded audio: place files in /audio/
+// named by slugified text, e.g. /audio/siediti.mp3
+// The system tries the file first, falls back to TTS.
+// ═══════════════════════════════════════════════════════
+function slugify(text) {
+  return text.toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[àá]/g,'a').replace(/[èé]/g,'e')
+    .replace(/[ìí]/g,'i').replace(/[òó]/g,'o').replace(/[ùú]/g,'u')
+    .replace(/[^a-z0-9-]/g,'');
+}
+
+const speechOK = typeof window.speechSynthesis !== 'undefined';
+let italianVoice = null;
+
+function initVoices() {
+  if (!speechOK) return;
+  const load = () => {
+    const voices = window.speechSynthesis.getVoices();
+    italianVoice = voices.find(v => v.lang && v.lang.startsWith('it')) || null;
+  };
+  load();
+  window.speechSynthesis.onvoiceschanged = load;
+}
+
+// Fires beat callbacks timed to syllable rhythm (independent of actual audio)
+function fireSyllableBeats(prompt, onBeat) {
+  const { beats } = getSyllableBeatmap(prompt.text, prompt.tempo);
+  for (const b of beats) {
+    setTimeout(() => onBeat(b.syllable), b.time);
+  }
+}
+
+function speakPrompt(prompt, onBeat) {
+  // 1. Try audio file
+  const audio = new Audio(`audio/${slugify(prompt.text)}.mp3`);
+  let usedAudio = false;
+
+  audio.addEventListener('canplaythrough', () => {
+    if (usedAudio) return;
+    usedAudio = true;
+    audio.play().catch(() => tts(prompt, onBeat));
+    fireSyllableBeats(prompt, onBeat);
+  }, { once: true });
+
+  audio.addEventListener('error', () => {
+    if (!usedAudio) tts(prompt, onBeat);
+  }, { once: true });
+
+  // Timeout fallback
+  setTimeout(() => { if (!usedAudio) { usedAudio = true; tts(prompt, onBeat); } }, 450);
+}
+
+function tts(prompt, onBeat) {
+  fireSyllableBeats(prompt, onBeat);
+  if (!speechOK) return;
+  window.speechSynthesis.cancel();
+  const utt   = new SpeechSynthesisUtterance(prompt.text);
+  utt.lang    = 'it-IT';
+  utt.rate    = 0.52 + prompt.tempo * 0.5;
+  utt.pitch   = 0.85 + prompt.tension * 0.2;
+  utt.volume  = 0.9;
+  if (italianVoice) utt.voice = italianVoice;
+  window.speechSynthesis.speak(utt);
+}
+
+// ═══════════════════════════════════════════════════════
+// SUBTITLE + PHASE DOT
+// ═══════════════════════════════════════════════════════
+const subtitleEl = document.getElementById('subtitle-text');
+const phaseDot   = document.getElementById('phase-dot');
+
+function showSubtitle(text) {
+  subtitleEl.style.transition = 'opacity 0.7s ease';
+  subtitleEl.textContent = text;
+  subtitleEl.style.opacity = '1';
+}
+function hideSubtitle() {
+  subtitleEl.style.transition = 'opacity 2.8s ease';
+  subtitleEl.style.opacity = '0';
+}
+function setPhaseDot(phase) {
+  const c = { stir:'rgba(100,160,255,0.5)', show:'rgba(200,230,255,0.9)',
+               respond:'rgba(100,160,255,0.3)', rest:'rgba(100,160,255,0.1)' };
+  phaseDot.style.background = c[phase] || c.rest;
+}
+
+// ═══════════════════════════════════════════════════════
+// SHARED STATE  (read by p5 every frame)
+// ═══════════════════════════════════════════════════════
+window.installationState = {
+  phase: 'rest', prompt: null, running: false,
+  pendingBeats: [],   // [{angle, weight, tension, tempo}]
+};
+
+function promptToAngle(prompt) {
+  let hash = 0;
+  for (let i = 0; i < prompt.text.length; i++) hash += prompt.text.charCodeAt(i);
+  return (Math.PI * 2 / 7) * (hash % 7) + prompt.tension * 0.3;
+}
+
+// ═══════════════════════════════════════════════════════
+// SEQUENCE RUNNER
+// ═══════════════════════════════════════════════════════
+let sequence = [], seqIndex = 0;
+
+function runNextPrompt() {
+  if (!window.installationState.running) return;
+  if (seqIndex >= sequence.length) { sequence = buildSequence(); seqIndex = 0; }
+
+  const prompt = sequence[seqIndex++];
+  window.installationState.prompt = prompt;
+
+  const { totalDuration } = getSyllableBeatmap(prompt.text, prompt.tempo);
+  const stirDur  = PHASE_STIR   + (Math.random()*500 - 250);
+  const showDur  = Math.max(totalDuration + 1400, 3200) + (Math.random()*600 - 300);
+  const respDur  = PHASE_RESPOND + prompt.tension * 3000 + (Math.random()*800 - 400);
+  const restDur  = PHASE_REST   + (Math.random()*600 - 300);
+
+  window.installationState.phase = 'stir';
+  setPhaseDot('stir');
+
+  setTimeout(() => {
+    window.installationState.phase = 'show';
+    setPhaseDot('show');
+    showSubtitle(prompt.text);
+
+    speakPrompt(prompt, (syllable) => {
+      window.installationState.pendingBeats.push({
+        syllable,
+        angle:   promptToAngle(prompt),
+        weight:  prompt.weight,
+        tension: prompt.tension,
+        tempo:   prompt.tempo,
+      });
+    });
+
+    setTimeout(() => {
+      window.installationState.phase = 'respond';
+      setPhaseDot('respond');
+      hideSubtitle();
+      if (speechOK) window.speechSynthesis.cancel();
+
+      setTimeout(() => {
+        window.installationState.phase = 'rest';
+        setPhaseDot('rest');
+        window.installationState.prompt = null;
+        setTimeout(runNextPrompt, restDur);
+      }, respDur);
+    }, showDur);
+  }, stirDur);
+}
+
+// ═══════════════════════════════════════════════════════
+// START
+// ═══════════════════════════════════════════════════════
+document.getElementById('start-overlay').addEventListener('click', function() {
+  this.classList.add('hidden');
+  setTimeout(() => this.style.display = 'none', 1400);
+  initVoices();
+  sequence = buildSequence(); seqIndex = 0;
+  window.installationState.running = true;
+  setTimeout(runNextPrompt, 1800);
+});
+
+// ═══════════════════════════════════════════════════════
+// P5 SKETCH
+// ═══════════════════════════════════════════════════════
+new p5(function(p) {
+
+  const DENSITY  = 1400;
+  const BASE_R   = 0.18;
+  const THICK_R  = 0.038;
+  const WEB_R    = 0.032;
+  const EMIT_ARC = 0.5;
+
+  let CX, CY, R, THICK, REACH;
+  let breathPhase = 0, breathRate = 0.007;
+  let particles   = [];
+  let stirTimer   = 0;
+
+  // ── COLOUR ──
+  function pCol(dMult, isFree, alpha) {
+    if (isFree) return p.color(200, 220, 255, alpha*255);
+    const t = p.constrain(dMult - 1, 0, 1);
+    return p.color(p.lerp(75,200,t), p.lerp(105,220,t), p.lerp(175,255,t), alpha*255);
+  }
+
+  // ── PARTICLE CLASS ──
+  function Particle(angle) {
+    this.angle = angle;
+    this.myR   = p.random(R - THICK/2, R + THICK/2);
+    this.pos   = p.createVector(CX + p.cos(angle)*this.myR, CY + p.sin(angle)*this.myR);
+    this.vel   = p.createVector(p.random(-0.3,0.3), p.random(-0.3,0.3));
+    this.acc   = p.createVector(0,0);
+    this.emitPhase = 'none'; this.emitTimer = 0;
+    this.emitVel   = p.createVector(0,0);
+    this.emitAlpha = 1.0; this.isFree = false;
+    this.emitDelay = 0; this.tendrilAngle = 0;
+    this.tendrilCurve = 0; this.tendrilPosition = 0;
+    this.emitWeight = 1; this.localCompFrames = 15;
+    this.flutter = [];
+
+    this.triggerEmission = function(wt, delay, tAng, tCurv, comp) {
+      this.emitPhase = 'compress'; this.emitTimer = 0;
+      this.emitWeight = wt; this.emitDelay = delay;
+      this.localCompFrames = comp; this.tendrilAngle = tAng;
+      this.tendrilCurve = tCurv; this.emitAlpha = 1.0;
+      this.isFree = true; this.tendrilPosition = p.random(0,1);
+      this.flutter = [];
+    };
+
+    this.update = function(targetAngle, weight, phase) {
+      const speaking = phase === 'stir' || phase === 'show';
+
+      if (this.emitPhase === 'compress') {
+        this.emitTimer++;
+        if (this.emitTimer >= this.emitDelay) {
+          const inner = p.createVector(
+            CX + p.cos(this.angle)*(R - THICK/2),
+            CY + p.sin(this.angle)*(R - THICK/2)
+          );
+          this.acc.add(p5.Vector.sub(inner, this.pos).mult(0.07));
+          if (this.emitTimer >= this.emitDelay + this.localCompFrames) {
+            this.emitPhase = 'free'; this.emitTimer = 0;
+            const spd = p.random(0.6,1.5) * this.emitWeight;
+            this.emitVel = p5.Vector.fromAngle(this.tendrilAngle).mult(spd);
+            const nf = p.floor(p.random(2,5));
+            for (let f = 0; f < nf; f++) {
+              this.flutter.push({
+                offset: p.createVector(p.random(-3,3), p.random(-3,3)),
+                vel:    p5.Vector.fromAngle(this.tendrilAngle + p.random(-0.5,0.5))
+                             .mult(p.random(0.2,0.8) * this.emitWeight),
+                alpha: p.random(0.3,0.7), life: p.random(0.5,1.0),
+              });
+            }
+          }
+        }
+      } else if (this.emitPhase === 'free') {
+        this.emitTimer++;
+        this.emitVel.mult(0.92);
+        const cf = Math.pow(p.map(this.emitTimer,0,60,0,1), 2);
+        this.emitVel.add(p5.Vector.fromAngle(this.tendrilAngle + p.HALF_PI)
+                          .mult(this.tendrilCurve * cf * 0.12));
+        this.pos.add(this.emitVel);
+
+        for (const f of this.flutter) {
+          f.vel.mult(0.87); f.offset.add(f.vel);
+          f.life -= 0.024; f.alpha = f.life * 0.7;
+        }
+        this.flutter = this.flutter.filter(f => f.life > 0);
+
+        this.emitAlpha -= p.map(this.tendrilPosition, 0, 1, 0.015, 0.033);
+        if (this.emitAlpha <= 0) {
+          this.pos = p.createVector(CX + p.cos(this.angle)*this.myR, CY + p.sin(this.angle)*this.myR);
+          this.vel = p.createVector(0,0);
+          this.emitPhase = 'none'; this.isFree = false; this.flutter = [];
+        }
+        return 1.0;
+      }
+
+      // Breathing — multi-frequency so the ring is never perfectly round
+      const bSlow = p.sin(breathPhase) * 0.028;
+      const bFast = p.sin(breathPhase * 3.7 + this.angle * 0.5) * 0.008;
+      const bWarp = p.sin(breathPhase * 0.7 + this.angle * 2.3) * 0.012;
+      const breathAmt = 1 + bSlow + bFast + bWarp;
+
+      const n = p.noise(this.pos.x*0.008, this.pos.y*0.008, p.frameCount*0.01);
+      const drift = p5.Vector.fromAngle(n * p.TWO_PI * 2).mult(0.5);
+
+      const pulseAmt = speaking ? (1 + p.sin(p.frameCount*0.1) * 0.05 * weight) : 1.0;
+      const curR   = this.myR * breathAmt * pulseAmt;
+      let homePos  = p.createVector(CX + p.cos(this.angle)*curR, CY + p.sin(this.angle)*curR);
+
+      let ad = p.abs(this.angle - targetAngle);
+      if (ad > p.PI) ad = p.TWO_PI - ad;
+      let dMult = 1.0;
+      if (speaking && ad < 0.5) {
+        const sat = p.createVector(
+          CX + p.cos(this.angle)*(curR + 22*weight),
+          CY + p.sin(this.angle)*(curR + 22*weight)
+        );
+        homePos = p5.Vector.lerp(homePos, sat, 0.55);
+        dMult   = 1.15 + weight * 0.8;
+      }
+
+      this.acc.add(p5.Vector.sub(homePos, this.pos).mult(0.025));
+      this.acc.add(drift);
+      this.vel.add(this.acc); this.vel.mult(0.86);
+      this.pos.add(this.vel); this.acc.mult(0);
+      return dMult;
+    };
+  }
+
+  function linePassesThroughCenter(x1,y1,x2,y2) {
+    const innerR = R - THICK/2 - 4;
+    const dx = x2-x1, dy = y2-y1;
+    const lenSq = dx*dx + dy*dy;
+    if (!lenSq) return false;
+    const t = p.constrain(((CX-x1)*dx+(CY-y1)*dy)/lenSq, 0, 1);
+    return p.dist(x1+t*dx, y1+t*dy, CX, CY) < innerR;
+  }
+
+  function triggerSyllableEmission(angle, weight, tension) {
+    const zone = [];
+    for (let i = 0; i < particles.length; i++) {
+      let ad = p.abs(particles[i].angle - angle);
+      if (ad > p.PI) ad = p.TWO_PI - ad;
+      if (ad < EMIT_ARC/2) zone.push(particles[i]);
+    }
+    if (!zone.length) return;
+
+    const tendrilCount = p.floor(p.map(weight, 0.25, 1.0, 2, 6));
+    const compFrames   = p.floor(p.map(tension, 0.1, 0.9, 28, 7));
+    const sharedCurve  = p.random(-0.22, 0.22);
+    const coneHalf     = p.map(tension, 0.1, 0.9, 0.18, 0.42);
+
+    for (let t = 0; t < tendrilCount; t++) {
+      const tAng      = angle + p.random(-coneHalf, coneHalf);
+      const delay     = t * p.floor(p.random(2,6));
+      const clSize    = p.floor(p.random(3,6));
+      const startIdx  = p.floor(p.random(0, p.max(1, zone.length - clSize)));
+      for (let c = 0; c < clSize; c++) {
+        const pt = zone[(startIdx+c) % zone.length];
+        pt.tendrilPosition = c / clSize;
+        pt.triggerEmission(weight, delay, tAng, sharedCurve, compFrames);
+      }
+    }
+  }
+
+  function triggerStirEmission(angle, weight, tension) {
+    triggerSyllableEmission(angle + p.random(-0.5,0.5), weight*0.4, tension*0.5);
+  }
+
+  // ── SETUP ──
+  function _resize() {
+    CX = p.width/2; CY = p.height/2;
+    R     = p.min(p.width,p.height) * BASE_R;
+    THICK = p.min(p.width,p.height) * THICK_R;
+    REACH = p.min(p.width,p.height) * WEB_R;
+  }
+
+  p.setup = function() {
+    const sz = p.min(p.windowWidth, p.windowHeight);
+    p.createCanvas(sz, sz).parent('canvas-container');
+    p.background(0);
+    _resize();
+    for (let i = 0; i < DENSITY; i++) particles.push(new Particle((p.TWO_PI/DENSITY)*i));
+  };
+
+  p.windowResized = function() {
+    p.resizeCanvas(p.min(p.windowWidth,p.windowHeight), p.min(p.windowWidth,p.windowHeight));
+    _resize();
+  };
+
+  // ── DRAW ──
+  p.draw = function() {
+    const state   = window.installationState;
+    const phase   = state.phase;
+    const prompt  = state.prompt;
+    const weight  = prompt ? prompt.weight  : 0.3;
+    const tension = prompt ? prompt.tension : 0.2;
+    const tempo   = prompt ? prompt.tempo   : 0.1;
+
+    // Slightly blue-tinted dark background fade
+    p.fill(2, 3, 9, 22); p.noStroke(); p.rect(0,0,p.width,p.height);
+
+    // Breath rate
+    let targetBR = 0.006 + tempo * 0.01;
+    if (phase === 'stir' || phase === 'show') targetBR += tension * 0.006;
+    if (phase === 'rest') targetBR = 0.005;
+    breathRate  += (targetBR - breathRate) * 0.02;
+    breathPhase += breathRate;
+
+    const targetAngle = prompt ? promptToAngle(prompt) : 0;
+
+    // ── CONSUME ONE BEAT PER FRAME ──
+    // (staggered so rapid syllables don't all fire at once)
+    if (state.pendingBeats.length > 0) {
+      const beat = state.pendingBeats.shift();
+      triggerSyllableEmission(beat.angle, beat.weight, beat.tension);
+    }
+
+    // ── STIR ──
+    if (phase === 'stir') {
+      stirTimer++;
+      const interval = p.floor(p.map(tempo, 0.05, 0.7, 65, 22));
+      if (stirTimer % interval === 0) triggerStirEmission(targetAngle, weight, tension);
+    } else { stirTimer = 0; }
+
+    // ── PARTICLES ──
+    for (let i = 0; i < particles.length; i++) {
+      const pt    = particles[i];
+      const dMult = pt.update(targetAngle, weight, phase);
+      const jX    = p.random(-1.5,1.5), jY = p.random(-1.5,1.5);
+
+      // flutter
+      if (pt.emitPhase === 'free') {
+        for (const f of pt.flutter) {
+          p.stroke(pCol(1, true, f.alpha * pt.emitAlpha));
+          p.strokeWeight(0.9);
+          p.point(pt.pos.x + f.offset.x, pt.pos.y + f.offset.y);
+        }
+      }
+
+      const alpha = pt.emitPhase === 'free' ? pt.emitAlpha*0.9 : 0.13*dMult;
+      p.stroke(pCol(dMult, pt.emitPhase === 'free', alpha));
+      p.strokeWeight(1.6);
+      p.point(pt.pos.x+jX, pt.pos.y+jY);
+
+      if (pt.emitPhase === 'free') continue;
+
+      // close web
+      for (let j = i+1; j < i+12; j++) {
+        const nx = j % particles.length;
+        if (particles[nx].emitPhase === 'free') continue;
+        const d = p.dist(pt.pos.x, pt.pos.y, particles[nx].pos.x, particles[nx].pos.y);
+        if (d < REACH) {
+          if (linePassesThroughCenter(pt.pos.x,pt.pos.y,particles[nx].pos.x,particles[nx].pos.y)) continue;
+          p.stroke(pCol(dMult, false, p.map(d,0,REACH,0.16*dMult,0)));
+          p.strokeWeight(0.5);
+          p.line(pt.pos.x+jX,pt.pos.y+jY,particles[nx].pos.x+jX,particles[nx].pos.y+jY);
+        }
+      }
+
+      // cross filaments
+      for (let k = i+1; k < i+40; k++) {
+        const fx = k % particles.length;
+        if (particles[fx].emitPhase === 'free') continue;
+        const df = p.dist(pt.pos.x,pt.pos.y,particles[fx].pos.x,particles[fx].pos.y);
+        if (df < REACH*1.4 && df > REACH) {
+          if (linePassesThroughCenter(pt.pos.x,pt.pos.y,particles[fx].pos.x,particles[fx].pos.y)) continue;
+          p.stroke(pCol(1, false, p.map(df,REACH,REACH*1.4,0.042,0)));
+          p.strokeWeight(0.25);
+          p.line(pt.pos.x,pt.pos.y,particles[fx].pos.x,particles[fx].pos.y);
+        }
+      }
+    }
+  };
+
+});
+</script>
+</body>
+</html>
