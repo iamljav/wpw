@@ -475,6 +475,7 @@ new p5(function(p) {
 
   let CX, CY, R, THICK, REACH;
   let breathPhase = 0, breathRate = 0.007;
+  let ringScale   = 0.62;   // starts small, eases to 1.0 when speaking
   let particles   = [];
   let stirTimer   = 0;
 
@@ -559,17 +560,20 @@ new p5(function(p) {
         return 1.0;
       }
 
-      // Breathing
-      const bSlow = p.sin(breathPhase) * 0.028;
-      const bFast = p.sin(breathPhase * 3.7 + this.angle * 0.5) * 0.008;
-      const bWarp = p.sin(breathPhase * 0.7 + this.angle * 2.3) * 0.012;
+      // Breathing — amplitude scales with state: barely perceptible at rest, full when speaking
+      const breathScale = speaking ? 1.0 : 0.18;
+      const bSlow = p.sin(breathPhase) * 0.028 * breathScale;
+      const bFast = p.sin(breathPhase * 3.7 + this.angle * 0.5) * 0.008 * breathScale;
+      const bWarp = p.sin(breathPhase * 0.7 + this.angle * 2.3) * 0.012 * breathScale;
       const breathAmt = 1 + bSlow + bFast + bWarp;
 
+      // Noise drift — nearly still at rest, restless when speaking
+      const driftStrength = speaking ? 0.5 : 0.06;
       const n = p.noise(this.pos.x*0.008, this.pos.y*0.008, p.frameCount*0.01);
-      const drift = p5.Vector.fromAngle(n * p.TWO_PI * 2).mult(0.5);
+      const drift = p5.Vector.fromAngle(n * p.TWO_PI * 2).mult(driftStrength);
 
       const pulseAmt = speaking ? (1 + p.sin(p.frameCount*0.1) * 0.05 * weight) : 1.0;
-      const curR  = this.myR * breathAmt * pulseAmt;
+      const curR  = this.myR * breathAmt * pulseAmt * ringScale;
       let homePos = p.createVector(CX + p.cos(this.angle)*curR, CY + p.sin(this.angle)*curR);
 
       let ad = p.abs(this.angle - targetAngle);
@@ -584,9 +588,12 @@ new p5(function(p) {
         dMult   = 1.15 + weight * 0.8;
       }
 
-      this.acc.add(p5.Vector.sub(homePos, this.pos).mult(0.025));
+      // Spring — tighter at rest (precise circle), looser when speaking (organic)
+      const springStrength = speaking ? 0.025 : 0.055;
+      const damping        = speaking ? 0.86  : 0.92;
+      this.acc.add(p5.Vector.sub(homePos, this.pos).mult(springStrength));
       this.acc.add(drift);
-      this.vel.add(this.acc); this.vel.mult(0.86);
+      this.vel.add(this.acc); this.vel.mult(damping);
       this.pos.add(this.vel); this.acc.mult(0);
       return dMult;
     };
@@ -659,14 +666,18 @@ new p5(function(p) {
     const weight  = prompt ? prompt.weight  : 0.3;
     const tension = prompt ? prompt.tension : 0.2;
     const tempo   = prompt ? prompt.tempo   : 0.1;
+    const speaking = phase === 'stir' || phase === 'show';
 
     p.fill(2, 3, 9, 22); p.noStroke(); p.rect(0,0,p.width,p.height);
 
-    let targetBR = 0.006 + tempo * 0.01;
-    if (phase === 'stir' || phase === 'show') targetBR += tension * 0.006;
-    if (phase === 'rest') targetBR = 0.005;
+    let targetBR = speaking ? (0.008 + tempo * 0.012 + tension * 0.006) : 0.002;
+    if (phase === 'rest') targetBR = 0.002;
     breathRate  += (targetBR - breathRate) * 0.02;
     breathPhase += breathRate;
+
+    // Ring size — small when dormant, full when speaking. Eases slowly like a breath
+    const targetScale = speaking ? 1.0 : (phase === 'stir' ? 0.82 : 0.62);
+    ringScale += (targetScale - ringScale) * 0.012;
 
     const targetAngle = prompt ? promptToAngle(prompt) : 0;
 
