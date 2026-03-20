@@ -42,6 +42,46 @@
       background: rgba(100,160,255,0.3);
       z-index: 10; transition: background 0.5s;
     }
+
+    #motion-toggle {
+      position: fixed; bottom: 2rem; left: 2rem;
+      z-index: 21; background: none; border: none;
+      font-family: 'Cinzel', serif; font-size: 0.65rem;
+      letter-spacing: 0.12em; color: rgba(100,160,255,0.35);
+      cursor: pointer; padding: 0; transition: color 0.3s;
+    }
+    #motion-toggle:hover { color: rgba(160,200,255,0.7); }
+
+    #motion-panel {
+      position: fixed; bottom: 4rem; left: 2rem;
+      z-index: 20; display: flex; flex-direction: column; gap: 0.8rem;
+      font-family: 'Cinzel', serif; font-size: 0.65rem;
+      letter-spacing: 0.1em; color: rgba(160,200,255,0.6);
+      opacity: 0; pointer-events: none; transition: opacity 0.4s;
+    }
+    #motion-panel.visible { opacity: 1; pointer-events: all; }
+    #motion-panel label { display: flex; flex-direction: column; gap: 0.3rem; }
+    #motion-panel input[type=range] {
+      -webkit-appearance: none; width: 140px; height: 2px;
+      background: rgba(100,160,255,0.3); outline: none; border-radius: 2px;
+    }
+    #motion-panel input[type=range]::-webkit-slider-thumb {
+      -webkit-appearance: none; width: 10px; height: 10px;
+      border-radius: 50%; background: rgba(160,200,255,0.8); cursor: pointer;
+    }
+    #motion-bar-wrap {
+      width: 140px; height: 3px;
+      background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden;
+    }
+    #motion-bar { height: 100%; width: 0%; background: rgba(160,200,255,0.7); transition: width 0.15s; }
+    #motion-indicator {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(100,160,255,0.25); transition: background 0.2s;
+    }
+    #motion-indicator.active { background: rgba(160,255,200,0.9); }
+    #camera-preview {
+      width: 80px; border-radius: 3px; opacity: 0.35; transform: scaleX(-1);
+    }
   </style>
 </head>
 <body>
@@ -49,6 +89,22 @@
 <div id="canvas-container"></div>
 <div id="subtitle"><div id="subtitle-text"></div></div>
 <div id="phase-dot"></div>
+
+<button id="motion-toggle">MOTION</button>
+<div id="motion-panel">
+  <video id="camera-preview" autoplay muted playsinline></video>
+  <label>SENSITIVITY
+    <input type="range" id="threshold-slider" min="2" max="40" value="15" step="1">
+    <span id="threshold-val">15</span>
+  </label>
+  <label>COOLDOWN (sec)
+    <input type="range" id="cooldown-slider" min="5" max="60" value="15" step="5">
+    <span id="cooldown-val">15s</span>
+  </label>
+  <div>MOTION LEVEL</div>
+  <div id="motion-bar-wrap"><div id="motion-bar"></div></div>
+  <div id="motion-indicator"></div>
+</div>
 
 <script>
 // ═══════════════════════════════════════════════════════
@@ -291,11 +347,117 @@ function runNextPrompt() {
 }
 
 // ═══════════════════════════════════════════════════════
-// AUTOSTART
+// MOTION DETECTION
+// ═══════════════════════════════════════════════════════
+let motionEnabled   = false;
+let motionThreshold = 15;
+let cooldownSecs    = 15;
+let cooldownTicks   = 0;       // counts down in 200ms ticks
+let lastPixels      = null;
+let offscreenCtx    = null;
+let motionActive    = false;
+let emptyTicks      = 0;       // how long the space has been empty
+const EMPTY_LIMIT   = 75;      // ~15 sec of no motion → dormant (75 × 200ms)
+
+const motionToggleBtn  = document.getElementById('motion-toggle');
+const motionPanel      = document.getElementById('motion-panel');
+const thresholdSlider  = document.getElementById('threshold-slider');
+const thresholdVal     = document.getElementById('threshold-val');
+const cooldownSlider   = document.getElementById('cooldown-slider');
+const cooldownVal      = document.getElementById('cooldown-val');
+const motionBar        = document.getElementById('motion-bar');
+const motionIndicator  = document.getElementById('motion-indicator');
+const cameraPreview    = document.getElementById('camera-preview');
+
+// Panel toggle
+motionToggleBtn.addEventListener('click', () => {
+  const open = motionPanel.classList.toggle('visible');
+  motionToggleBtn.textContent = open ? 'CHIUDI' : 'MOTION';
+  if (open && !motionEnabled) startMotion();
+});
+
+// Sliders
+thresholdSlider.addEventListener('input', () => {
+  motionThreshold = +thresholdSlider.value;
+  thresholdVal.textContent = motionThreshold;
+});
+cooldownSlider.addEventListener('input', () => {
+  cooldownSecs = +cooldownSlider.value;
+  cooldownVal.textContent = cooldownSecs + 's';
+  cooldownTicks = 0; // reset cooldown when changed
+});
+
+function startMotion() {
+  motionEnabled = true;
+  navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
+    .then(stream => {
+      cameraPreview.srcObject = stream;
+      // offscreen canvas for pixel diffing — tiny for performance
+      const oc  = document.createElement('canvas');
+      oc.width  = 64; oc.height = 48;
+      offscreenCtx = oc.getContext('2d');
+
+      setInterval(checkMotion, 200);
+    })
+    .catch(err => {
+      console.warn('Camera not available:', err);
+      motionPanel.innerHTML += '<div style="color:rgba(255,120,120,0.7);margin-top:0.5rem">Camera non disponibile</div>';
+    });
+}
+
+function checkMotion() {
+  if (!offscreenCtx || !cameraPreview.readyState) return;
+
+  offscreenCtx.drawImage(cameraPreview, 0, 0, 64, 48);
+  const pixels = offscreenCtx.getImageData(0, 0, 64, 48).data;
+
+  if (lastPixels) {
+    let diff = 0;
+    for (let i = 0; i < pixels.length; i += 4) {
+      diff += Math.abs(pixels[i] - lastPixels[i]);      // R
+      diff += Math.abs(pixels[i+1] - lastPixels[i+1]);  // G
+      diff += Math.abs(pixels[i+2] - lastPixels[i+2]);  // B
+    }
+    const level = diff / (64 * 48 * 3);  // 0–255 normalised per pixel
+
+    // Update UI
+    motionBar.style.width = Math.min(100, (level / 40) * 100) + '%';
+
+    const detected = level > motionThreshold;
+    motionIndicator.classList.toggle('active', detected);
+
+    if (detected) {
+      emptyTicks = 0;
+      if (cooldownTicks <= 0) {
+        // Motion detected — wake or keep running
+        cooldownTicks = (cooldownSecs * 1000) / 200;
+        if (!window.installationState.running) {
+          window.installationState.running = true;
+          runNextPrompt();
+        }
+      }
+    } else {
+      emptyTicks++;
+      if (emptyTicks > EMPTY_LIMIT && window.installationState.running) {
+        // Space has been empty long enough — go dormant
+        window.installationState.running = false;
+      }
+    }
+
+    if (cooldownTicks > 0) cooldownTicks--;
+  }
+
+  lastPixels = pixels;
+}
+
+// ═══════════════════════════════════════════════════════
+// AUTOSTART — ring breathes immediately, prompts wait for motion
+// (or start right away if motion panel is not opened)
 // ═══════════════════════════════════════════════════════
 window.addEventListener('load', function() {
   initVoices();
   sequence = buildSequence(); seqIndex = 0;
+  // Start running immediately — motion panel can override this
   window.installationState.running = true;
   setTimeout(runNextPrompt, 1800);
 });
