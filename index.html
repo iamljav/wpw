@@ -11,20 +11,17 @@
   <style>
     *, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
     html, body { width: 100%; height: 100%; background: #000; overflow: hidden; cursor: none; }
-
     #canvas-container {
       position: fixed; top: 0; left: 0;
       width: 100%; height: 100%;
       display: flex; align-items: center; justify-content: center;
     }
-
     #subtitle {
       position: fixed; bottom: 10vh; left: 50%;
       transform: translateX(-50%);
       text-align: center; z-index: 10;
       pointer-events: none; width: 80vw; max-width: 900px;
     }
-
     #subtitle-text {
       font-family: 'Cinzel', serif;
       font-weight: 300;
@@ -32,64 +29,59 @@
       letter-spacing: 0.18em;
       color: #fff; opacity: 0;
       text-transform: uppercase;
-      text-shadow: 0 0 40px rgba(160,200,255,0.4), 0 0 80px rgba(100,160,255,0.15);
+      text-shadow: 0 0 40px rgba(183,1,0,0.5), 0 0 80px rgba(230,60,0,0.2);
       transition: opacity 0.8s ease;
     }
-
     #phase-dot {
       position: fixed; top: 2rem; right: 2rem;
       width: 6px; height: 6px; border-radius: 50%;
-      background: rgba(100,160,255,0.3);
+      background: rgba(80,1,0,0.4);
       z-index: 10; transition: background 0.5s;
     }
-
     #motion-toggle {
       position: fixed; bottom: 2rem; left: 2rem;
       z-index: 21; background: none; border: none;
       font-family: 'Cinzel', serif; font-size: 0.65rem;
-      letter-spacing: 0.12em; color: rgba(100,160,255,0.35);
+      letter-spacing: 0.12em; color: rgba(183,1,0,0.35);
       cursor: pointer; padding: 0; transition: color 0.3s;
     }
-    #motion-toggle:hover { color: rgba(160,200,255,0.7); }
-
+    #motion-toggle:hover { color: rgba(230,60,0,0.7); }
     #motion-panel {
       position: fixed; bottom: 4rem; left: 2rem;
       z-index: 20; display: flex; flex-direction: column; gap: 0.8rem;
       font-family: 'Cinzel', serif; font-size: 0.65rem;
-      letter-spacing: 0.1em; color: rgba(160,200,255,0.6);
+      letter-spacing: 0.1em; color: rgba(230,80,0,0.6);
       opacity: 0; pointer-events: none; transition: opacity 0.4s;
     }
     #motion-panel.visible { opacity: 1; pointer-events: all; }
     #motion-panel label { display: flex; flex-direction: column; gap: 0.3rem; }
     #motion-panel input[type=range] {
       -webkit-appearance: none; width: 140px; height: 2px;
-      background: rgba(100,160,255,0.3); outline: none; border-radius: 2px;
+      background: rgba(183,1,0,0.3); outline: none; border-radius: 2px;
     }
     #motion-panel input[type=range]::-webkit-slider-thumb {
       -webkit-appearance: none; width: 10px; height: 10px;
-      border-radius: 50%; background: rgba(160,200,255,0.8); cursor: pointer;
+      border-radius: 50%; background: rgba(230,80,0,0.8); cursor: pointer;
     }
     #motion-bar-wrap {
       width: 140px; height: 3px;
       background: rgba(255,255,255,0.08); border-radius: 2px; overflow: hidden;
     }
-    #motion-bar { height: 100%; width: 0%; background: rgba(160,200,255,0.7); transition: width 0.15s; }
+    #motion-bar { height: 100%; width: 0%; background: rgba(230,60,0,0.8); transition: width 0.15s; }
     #motion-indicator {
       width: 8px; height: 8px; border-radius: 50%;
-      background: rgba(100,160,255,0.25); transition: background 0.2s;
+      background: rgba(183,1,0,0.25); transition: background 0.2s;
     }
-    #motion-indicator.active { background: rgba(160,255,200,0.9); }
+    #motion-indicator.active { background: rgba(255,120,0,0.9); }
     #camera-preview {
       width: 80px; border-radius: 3px; opacity: 0.35; transform: scaleX(-1);
     }
   </style>
 </head>
 <body>
-
 <div id="canvas-container"></div>
 <div id="subtitle"><div id="subtitle-text"></div></div>
 <div id="phase-dot"></div>
-
 <button id="motion-toggle">MOTION</button>
 <div id="motion-panel">
   <video id="camera-preview" autoplay muted playsinline></video>
@@ -105,7 +97,6 @@
   <div id="motion-bar-wrap"><div id="motion-bar"></div></div>
   <div id="motion-indicator"></div>
 </div>
-
 <script>
 // ═══════════════════════════════════════════════════════
 // ITALIAN SYLLABIFIER
@@ -134,7 +125,6 @@ function syllabifyItalian(word) {
   if (cur) syllables.push(cur);
   return syllables.filter(s => s.length > 0);
 }
-
 function getSyllableBeatmap(text, tempo) {
   const words = text.split(' ');
   const GAP   = 90 + (1 - tempo) * 320;
@@ -147,7 +137,6 @@ function getSyllableBeatmap(text, tempo) {
   }
   return { beats, totalDuration: t };
 }
-
 // ═══════════════════════════════════════════════════════
 // CORPUS
 // ═══════════════════════════════════════════════════════
@@ -200,7 +189,6 @@ const CLUSTERS = [
     { text: 'Dimentica dove sei', tempo: 0.05, weight: 0.25, tension: 0.10 },
   ]},
 ];
-
 function buildSequence() {
   let seq = [];
   const shuffled = [...CLUSTERS].sort(() => Math.random() - 0.5);
@@ -209,14 +197,12 @@ function buildSequence() {
   }
   return seq;
 }
-
 // ═══════════════════════════════════════════════════════
 // TIMING
 // ═══════════════════════════════════════════════════════
 const PHASE_STIR    = 2400;
 const PHASE_RESPOND = 10000;
 const PHASE_REST    = 3500;
-
 // ═══════════════════════════════════════════════════════
 // AUDIO / SPEECH
 // ═══════════════════════════════════════════════════════
@@ -227,22 +213,18 @@ function slugify(text) {
     .replace(/[ìí]/g,'i').replace(/[òó]/g,'o').replace(/[ùú]/g,'u')
     .replace(/[^a-z0-9-]/g,'');
 }
-
 const speechOK = typeof window.speechSynthesis !== 'undefined';
 let italianVoice = null;
-
 function initVoices() {
   if (!speechOK) return;
   const load = () => { italianVoice = window.speechSynthesis.getVoices().find(v => v.lang && v.lang.startsWith('it')) || null; };
   load();
   window.speechSynthesis.onvoiceschanged = load;
 }
-
 function fireSyllableBeats(prompt, onBeat) {
   const { beats } = getSyllableBeatmap(prompt.text, prompt.tempo);
   for (const b of beats) setTimeout(() => onBeat(b.syllable), b.time);
 }
-
 function speakPrompt(prompt, onBeat) {
   let fired = false;
   const guard = fn => () => { if (fired) return; fired = true; fn(); };
@@ -254,7 +236,6 @@ function speakPrompt(prompt, onBeat) {
   audio.addEventListener('error', guard(() => tts(prompt, onBeat)), { once: true });
   setTimeout(guard(() => tts(prompt, onBeat)), 450);
 }
-
 function tts(prompt, onBeat) {
   fireSyllableBeats(prompt, onBeat);
   if (!speechOK) return;
@@ -267,13 +248,11 @@ function tts(prompt, onBeat) {
   if (italianVoice) utt.voice = italianVoice;
   window.speechSynthesis.speak(utt);
 }
-
 // ═══════════════════════════════════════════════════════
 // SUBTITLE + PHASE DOT
 // ═══════════════════════════════════════════════════════
 const subtitleEl = document.getElementById('subtitle-text');
 const phaseDot   = document.getElementById('phase-dot');
-
 function showSubtitle(text) {
   subtitleEl.style.transition = 'opacity 0.7s ease';
   subtitleEl.textContent = text;
@@ -284,10 +263,14 @@ function hideSubtitle() {
   subtitleEl.style.opacity = '0';
 }
 function setPhaseDot(phase) {
-  const c = { stir:'rgba(100,160,255,0.5)', show:'rgba(200,230,255,0.9)', respond:'rgba(100,160,255,0.3)', rest:'rgba(100,160,255,0.1)' };
+  const c = {
+    stir:    'rgba(183,1,0,0.6)',
+    show:    'rgba(230,80,0,0.9)',
+    respond: 'rgba(183,1,0,0.3)',
+    rest:    'rgba(80,1,0,0.3)'
+  };
   phaseDot.style.background = c[phase] || c.rest;
 }
-
 // ═══════════════════════════════════════════════════════
 // SHARED STATE
 // ═══════════════════════════════════════════════════════
@@ -295,33 +278,26 @@ window.installationState = {
   phase: 'rest', prompt: null, running: false,
   pendingBeats: [],
 };
-
 function promptToAngle(prompt) {
   let hash = 0;
   for (let i = 0; i < prompt.text.length; i++) hash += prompt.text.charCodeAt(i);
   return (Math.PI * 2 / 7) * (hash % 7) + prompt.tension * 0.3;
 }
-
 // ═══════════════════════════════════════════════════════
 // SEQUENCE RUNNER
 // ═══════════════════════════════════════════════════════
 let sequence = [], seqIndex = 0;
-
 function runNextPrompt() {
   if (!window.installationState.running) return;
   if (seqIndex >= sequence.length) { sequence = buildSequence(); seqIndex = 0; }
-
   const prompt = sequence[seqIndex++];
   window.installationState.prompt = prompt;
-
   const { totalDuration } = getSyllableBeatmap(prompt.text, prompt.tempo);
   const stirDur = PHASE_STIR   + (Math.random()*500 - 250);
   const showDur = Math.max(totalDuration + 1400, 3200) + (Math.random()*600 - 300);
   const respDur = PHASE_RESPOND + prompt.tension * 3000 + (Math.random()*800 - 400);
   const restDur = PHASE_REST   + (Math.random()*600 - 300);
-
   window.installationState.phase = 'stir'; setPhaseDot('stir');
-
   setTimeout(() => {
     window.installationState.phase = 'show'; setPhaseDot('show');
     showSubtitle(prompt.text);
@@ -331,12 +307,10 @@ function runNextPrompt() {
         weight: prompt.weight, tension: prompt.tension, tempo: prompt.tempo,
       });
     });
-
     setTimeout(() => {
       window.installationState.phase = 'respond'; setPhaseDot('respond');
       hideSubtitle();
       if (speechOK) window.speechSynthesis.cancel();
-
       setTimeout(() => {
         window.installationState.phase = 'rest'; setPhaseDot('rest');
         window.installationState.prompt = null;
@@ -345,20 +319,18 @@ function runNextPrompt() {
     }, showDur);
   }, stirDur);
 }
-
 // ═══════════════════════════════════════════════════════
 // MOTION DETECTION
 // ═══════════════════════════════════════════════════════
 let motionEnabled   = false;
 let motionThreshold = 15;
 let cooldownSecs    = 15;
-let cooldownTicks   = 0;       // counts down in 200ms ticks
+let cooldownTicks   = 0;
 let lastPixels      = null;
 let offscreenCtx    = null;
 let motionActive    = false;
-let emptyTicks      = 0;       // how long the space has been empty
-const EMPTY_LIMIT   = 75;      // ~15 sec of no motion → dormant (75 × 200ms)
-
+let emptyTicks      = 0;
+const EMPTY_LIMIT   = 75;
 const motionToggleBtn  = document.getElementById('motion-toggle');
 const motionPanel      = document.getElementById('motion-panel');
 const thresholdSlider  = document.getElementById('threshold-slider');
@@ -368,15 +340,11 @@ const cooldownVal      = document.getElementById('cooldown-val');
 const motionBar        = document.getElementById('motion-bar');
 const motionIndicator  = document.getElementById('motion-indicator');
 const cameraPreview    = document.getElementById('camera-preview');
-
-// Panel toggle
 motionToggleBtn.addEventListener('click', () => {
   const open = motionPanel.classList.toggle('visible');
   motionToggleBtn.textContent = open ? 'CHIUDI' : 'MOTION';
   if (open && !motionEnabled) startMotion();
 });
-
-// Sliders
 thresholdSlider.addEventListener('input', () => {
   motionThreshold = +thresholdSlider.value;
   thresholdVal.textContent = motionThreshold;
@@ -384,19 +352,16 @@ thresholdSlider.addEventListener('input', () => {
 cooldownSlider.addEventListener('input', () => {
   cooldownSecs = +cooldownSlider.value;
   cooldownVal.textContent = cooldownSecs + 's';
-  cooldownTicks = 0; // reset cooldown when changed
+  cooldownTicks = 0;
 });
-
 function startMotion() {
   motionEnabled = true;
   navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false })
     .then(stream => {
       cameraPreview.srcObject = stream;
-      // offscreen canvas for pixel diffing — tiny for performance
       const oc  = document.createElement('canvas');
       oc.width  = 64; oc.height = 48;
       offscreenCtx = oc.getContext('2d');
-
       setInterval(checkMotion, 200);
     })
     .catch(err => {
@@ -404,32 +369,24 @@ function startMotion() {
       motionPanel.innerHTML += '<div style="color:rgba(255,120,120,0.7);margin-top:0.5rem">Camera non disponibile</div>';
     });
 }
-
 function checkMotion() {
   if (!offscreenCtx || !cameraPreview.readyState) return;
-
   offscreenCtx.drawImage(cameraPreview, 0, 0, 64, 48);
   const pixels = offscreenCtx.getImageData(0, 0, 64, 48).data;
-
   if (lastPixels) {
     let diff = 0;
     for (let i = 0; i < pixels.length; i += 4) {
-      diff += Math.abs(pixels[i] - lastPixels[i]);      // R
-      diff += Math.abs(pixels[i+1] - lastPixels[i+1]);  // G
-      diff += Math.abs(pixels[i+2] - lastPixels[i+2]);  // B
+      diff += Math.abs(pixels[i] - lastPixels[i]);
+      diff += Math.abs(pixels[i+1] - lastPixels[i+1]);
+      diff += Math.abs(pixels[i+2] - lastPixels[i+2]);
     }
-    const level = diff / (64 * 48 * 3);  // 0–255 normalised per pixel
-
-    // Update UI
+    const level = diff / (64 * 48 * 3);
     motionBar.style.width = Math.min(100, (level / 40) * 100) + '%';
-
     const detected = level > motionThreshold;
     motionIndicator.classList.toggle('active', detected);
-
     if (detected) {
       emptyTicks = 0;
       if (cooldownTicks <= 0) {
-        // Motion detected — wake or keep running
         cooldownTicks = (cooldownSecs * 1000) / 200;
         if (!window.installationState.running) {
           window.installationState.running = true;
@@ -439,50 +396,50 @@ function checkMotion() {
     } else {
       emptyTicks++;
       if (emptyTicks > EMPTY_LIMIT && window.installationState.running) {
-        // Space has been empty long enough — go dormant
         window.installationState.running = false;
       }
     }
-
     if (cooldownTicks > 0) cooldownTicks--;
   }
-
   lastPixels = pixels;
 }
-
 // ═══════════════════════════════════════════════════════
-// AUTOSTART — ring breathes immediately, prompts wait for motion
-// (or start right away if motion panel is not opened)
+// AUTOSTART
 // ═══════════════════════════════════════════════════════
 window.addEventListener('load', function() {
   initVoices();
   sequence = buildSequence(); seqIndex = 0;
-  // Start running immediately — motion panel can override this
   window.installationState.running = true;
   setTimeout(runNextPrompt, 1800);
 });
-
 // ═══════════════════════════════════════════════════════
 // P5 SKETCH
 // ═══════════════════════════════════════════════════════
 new p5(function(p) {
-
   const DENSITY  = 1400;
   const BASE_R   = 0.18;
   const THICK_R  = 0.038;
   const WEB_R    = 0.032;
   const EMIT_ARC = 0.75;
-
   let CX, CY, R, THICK, REACH;
   let breathPhase = 0, breathRate = 0.007;
-  let ringScale   = 0.62;   // starts small, eases to 1.0 when speaking
+  let ringScale   = 0.62;
   let particles   = [];
   let stirTimer   = 0;
 
+  // ── COLOUR — #B70100 palette ──
+  // Resting:  dark ember      rgb(55, 1, 0)
+  // Active:   full crimson    rgb(183, 1, 0)
+  // Erupting: hot orange-white rgb(255, 180, 60)
   function pCol(dMult, isFree, alpha) {
-    if (isFree) return p.color(200, 220, 255, alpha * 255);
+    if (isFree) return p.color(255, 170, 50, alpha * 255);
     const t = p.constrain(dMult - 1, 0, 1);
-    return p.color(p.lerp(75,200,t), p.lerp(105,220,t), p.lerp(175,255,t), alpha*255);
+    return p.color(
+      p.lerp(55,  230, t),   // R: dark ember → bright blood-orange
+      p.lerp(1,   50,  t),   // G: near zero → slight warm cast
+      p.lerp(0,   0,   t),   // B: zero throughout — stays in red family
+      alpha * 255
+    );
   }
 
   function Particle(angle) {
@@ -498,7 +455,6 @@ new p5(function(p) {
     this.tendrilCurve = 0; this.tendrilPosition = 0;
     this.emitWeight = 1; this.localCompFrames = 15;
     this.flutter = [];
-
     this.triggerEmission = function(wt, delay, tAng, tCurv, comp) {
       this.emitPhase = 'compress'; this.emitTimer = 0;
       this.emitWeight = wt; this.emitDelay = delay;
@@ -507,10 +463,8 @@ new p5(function(p) {
       this.isFree = true; this.tendrilPosition = p.random(0,1);
       this.flutter = [];
     };
-
     this.update = function(targetAngle, weight, phase) {
       const speaking = phase === 'stir' || phase === 'show';
-
       if (this.emitPhase === 'compress') {
         this.emitTimer++;
         if (this.emitTimer >= this.emitDelay) {
@@ -521,7 +475,6 @@ new p5(function(p) {
           this.acc.add(p5.Vector.sub(inner, this.pos).mult(0.07));
           if (this.emitTimer >= this.emitDelay + this.localCompFrames) {
             this.emitPhase = 'free'; this.emitTimer = 0;
-            // Speed: reaches well outward from the ring
             const spd = p.random(1.6, 3.2) * this.emitWeight;
             this.emitVel = p5.Vector.fromAngle(this.tendrilAngle).mult(spd);
             const nf = p.floor(p.random(2,5));
@@ -537,20 +490,16 @@ new p5(function(p) {
         }
       } else if (this.emitPhase === 'free') {
         this.emitTimer++;
-        // Deceleration: strong enough to stop well within canvas
         this.emitVel.mult(0.93);
         const cf = Math.pow(p.map(this.emitTimer,0,60,0,1), 2);
         this.emitVel.add(p5.Vector.fromAngle(this.tendrilAngle + p.HALF_PI)
                           .mult(this.tendrilCurve * cf * 0.12));
         this.pos.add(this.emitVel);
-
         for (const f of this.flutter) {
           f.vel.mult(0.87); f.offset.add(f.vel);
           f.life -= 0.024; f.alpha = f.life * 0.7;
         }
         this.flutter = this.flutter.filter(f => f.life > 0);
-
-        // Slower fade — stays visible through full extension
         this.emitAlpha -= p.map(this.tendrilPosition, 0, 1, 0.008, 0.018);
         if (this.emitAlpha <= 0) {
           this.pos = p.createVector(CX + p.cos(this.angle)*this.myR, CY + p.sin(this.angle)*this.myR);
@@ -559,23 +508,17 @@ new p5(function(p) {
         }
         return 1.0;
       }
-
-      // Breathing — amplitude scales with state: barely perceptible at rest, full when speaking
       const breathScale = speaking ? 1.0 : 0.18;
       const bSlow = p.sin(breathPhase) * 0.028 * breathScale;
       const bFast = p.sin(breathPhase * 3.7 + this.angle * 0.5) * 0.008 * breathScale;
       const bWarp = p.sin(breathPhase * 0.7 + this.angle * 2.3) * 0.012 * breathScale;
       const breathAmt = 1 + bSlow + bFast + bWarp;
-
-      // Noise drift — nearly still at rest, restless when speaking
       const driftStrength = speaking ? 0.5 : 0.06;
       const n = p.noise(this.pos.x*0.008, this.pos.y*0.008, p.frameCount*0.01);
       const drift = p5.Vector.fromAngle(n * p.TWO_PI * 2).mult(driftStrength);
-
       const pulseAmt = speaking ? (1 + p.sin(p.frameCount*0.1) * 0.05 * weight) : 1.0;
       const curR  = this.myR * breathAmt * pulseAmt * ringScale;
       let homePos = p.createVector(CX + p.cos(this.angle)*curR, CY + p.sin(this.angle)*curR);
-
       let ad = p.abs(this.angle - targetAngle);
       if (ad > p.PI) ad = p.TWO_PI - ad;
       let dMult = 1.0;
@@ -587,8 +530,6 @@ new p5(function(p) {
         homePos = p5.Vector.lerp(homePos, sat, 0.55);
         dMult   = 1.15 + weight * 0.8;
       }
-
-      // Spring — tighter at rest (precise circle), looser when speaking (organic)
       const springStrength = speaking ? 0.025 : 0.055;
       const damping        = speaking ? 0.86  : 0.92;
       this.acc.add(p5.Vector.sub(homePos, this.pos).mult(springStrength));
@@ -598,7 +539,6 @@ new p5(function(p) {
       return dMult;
     };
   }
-
   function linePassesThroughCenter(x1,y1,x2,y2) {
     const innerR = R - THICK/2 - 4;
     const dx = x2-x1, dy = y2-y1;
@@ -607,7 +547,6 @@ new p5(function(p) {
     const t = p.constrain(((CX-x1)*dx+(CY-y1)*dy)/lenSq, 0, 1);
     return p.dist(x1+t*dx, y1+t*dy, CX, CY) < innerR;
   }
-
   function triggerSyllableEmission(angle, weight, tension) {
     const zone = [];
     for (let i = 0; i < particles.length; i++) {
@@ -616,12 +555,10 @@ new p5(function(p) {
       if (ad < EMIT_ARC/2) zone.push(particles[i]);
     }
     if (!zone.length) return;
-
     const tendrilCount = p.floor(p.map(weight, 0.25, 1.0, 5, 14));
     const compFrames   = p.floor(p.map(tension, 0.1, 0.9, 28, 7));
     const sharedCurve  = p.random(-0.28, 0.28);
     const coneHalf     = p.map(tension, 0.1, 0.9, 0.22, 0.55);
-
     for (let t = 0; t < tendrilCount; t++) {
       const tAng     = angle + p.random(-coneHalf, coneHalf);
       const delay    = t * p.floor(p.random(1,5));
@@ -634,18 +571,15 @@ new p5(function(p) {
       }
     }
   }
-
   function triggerStirEmission(angle, weight, tension) {
     triggerSyllableEmission(angle + p.random(-0.5,0.5), weight*0.4, tension*0.5);
   }
-
   function _resize() {
     CX = p.width/2; CY = p.height/2;
     R     = p.min(p.width,p.height) * BASE_R;
     THICK = p.min(p.width,p.height) * THICK_R;
     REACH = p.min(p.width,p.height) * WEB_R;
   }
-
   p.setup = function() {
     const sz = p.min(p.windowWidth, p.windowHeight);
     p.createCanvas(sz, sz).parent('canvas-container');
@@ -653,12 +587,10 @@ new p5(function(p) {
     _resize();
     for (let i = 0; i < DENSITY; i++) particles.push(new Particle((p.TWO_PI/DENSITY)*i));
   };
-
   p.windowResized = function() {
     p.resizeCanvas(p.min(p.windowWidth,p.windowHeight), p.min(p.windowWidth,p.windowHeight));
     _resize();
   };
-
   p.draw = function() {
     const state   = window.installationState;
     const phase   = state.phase;
@@ -668,35 +600,29 @@ new p5(function(p) {
     const tempo   = prompt ? prompt.tempo   : 0.1;
     const speaking = phase === 'stir' || phase === 'show';
 
-    p.fill(2, 3, 9, 22); p.noStroke(); p.rect(0,0,p.width,p.height);
+    // Background — very faint red-black tint
+    p.fill(6, 1, 1, 22); p.noStroke(); p.rect(0,0,p.width,p.height);
 
     let targetBR = speaking ? (0.008 + tempo * 0.012 + tension * 0.006) : 0.002;
     if (phase === 'rest') targetBR = 0.002;
     breathRate  += (targetBR - breathRate) * 0.02;
     breathPhase += breathRate;
-
-    // Ring size — small when dormant, full when speaking. Eases slowly like a breath
     const targetScale = speaking ? 1.0 : (phase === 'stir' ? 0.82 : 0.62);
     ringScale += (targetScale - ringScale) * 0.012;
-
     const targetAngle = prompt ? promptToAngle(prompt) : 0;
-
     if (state.pendingBeats.length > 0) {
       const beat = state.pendingBeats.shift();
       triggerSyllableEmission(beat.angle, beat.weight, beat.tension);
     }
-
     if (phase === 'stir') {
       stirTimer++;
       const interval = p.floor(p.map(tempo, 0.05, 0.7, 65, 22));
       if (stirTimer % interval === 0) triggerStirEmission(targetAngle, weight, tension);
     } else { stirTimer = 0; }
-
     for (let i = 0; i < particles.length; i++) {
       const pt    = particles[i];
       const dMult = pt.update(targetAngle, weight, phase);
       const jX    = p.random(-1.5,1.5), jY = p.random(-1.5,1.5);
-
       if (pt.emitPhase === 'free') {
         for (const f of pt.flutter) {
           p.stroke(pCol(1, true, f.alpha * pt.emitAlpha));
@@ -704,14 +630,11 @@ new p5(function(p) {
           p.point(pt.pos.x + f.offset.x, pt.pos.y + f.offset.y);
         }
       }
-
       const alpha = pt.emitPhase === 'free' ? pt.emitAlpha * 0.9 : 0.13 * dMult;
       p.stroke(pCol(dMult, pt.emitPhase === 'free', alpha));
       p.strokeWeight(1.6);
       p.point(pt.pos.x+jX, pt.pos.y+jY);
-
       if (pt.emitPhase === 'free') continue;
-
       for (let j = i+1; j < i+12; j++) {
         const nx = j % particles.length;
         if (particles[nx].emitPhase === 'free') continue;
@@ -723,7 +646,6 @@ new p5(function(p) {
           p.line(pt.pos.x+jX,pt.pos.y+jY,particles[nx].pos.x+jX,particles[nx].pos.y+jY);
         }
       }
-
       for (let k = i+1; k < i+40; k++) {
         const fx = k % particles.length;
         if (particles[fx].emitPhase === 'free') continue;
@@ -737,7 +659,6 @@ new p5(function(p) {
       }
     }
   };
-
 });
 </script>
 </body>
